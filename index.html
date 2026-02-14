@@ -1,0 +1,1429 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <title>QupiHearts 💘</title>
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=Dancing+Script:wght@600;700&display=swap" rel="stylesheet">
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; touch-action: none; -webkit-tap-highlight-color: transparent; }
+
+        body {
+            background: #1a0a2e;
+            overflow: hidden;
+            width: 100vw;
+            height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-family: 'Press Start 2P', monospace;
+        }
+
+        canvas {
+            display: block;
+            image-rendering: pixelated;
+            image-rendering: crisp-edges;
+        }
+
+        /* ===== PIXEL UI OVERLAY ===== */
+        .game-ui {
+            position: fixed;
+            top: 10px;
+            left: 10px;
+            right: 10px;
+            display: none;
+            justify-content: space-between;
+            align-items: center;
+            z-index: 5;
+            pointer-events: none;
+        }
+        .game-ui.show { display: flex; }
+
+        .pixel-panel {
+            background: #1a0a2e;
+            border: 3px solid #ff6eb4;
+            padding: 8px 12px;
+            box-shadow: 3px 3px 0 #ff1a6e, inset -2px -2px 0 #8b0050;
+            image-rendering: pixelated;
+        }
+
+        .score-label {
+            font-family: 'Press Start 2P', monospace;
+            font-size: 7px;
+            color: #ff9fcc;
+            display: block;
+            margin-bottom: 4px;
+            text-shadow: 1px 1px 0 #8b0050;
+        }
+        .score-value {
+            font-family: 'Press Start 2P', monospace;
+            font-size: 14px;
+            color: #ff4daa;
+            display: block;
+            text-shadow: 2px 2px 0 #8b0050;
+        }
+        .score-max {
+            font-size: 9px;
+            color: #cc6699;
+        }
+
+        /* ===== PIXEL SCREENS ===== */
+        .screen {
+            position: fixed;
+            top: 0; left: 0;
+            width: 100%; height: 100%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 10;
+        }
+        .screen-bg {
+            position: absolute;
+            top: 0; left: 0;
+            width: 100%; height: 100%;
+            background: rgba(15, 5, 30, 0.92);
+        }
+
+        .pixel-box {
+            position: relative;
+            background: #1a0a2e;
+            border: 4px solid #ff6eb4;
+            box-shadow: 6px 6px 0 #8b0050, inset -3px -3px 0 #0d0520;
+            padding: 28px 24px;
+            width: calc(100% - 32px);
+            max-width: 360px;
+            text-align: center;
+            z-index: 1;
+        }
+
+        .pixel-title {
+            font-family: 'Press Start 2P', monospace;
+            font-size: clamp(14px, 4vw, 22px);
+            color: #ff4daa;
+            text-shadow: 3px 3px 0 #8b0050, -1px -1px 0 #ff9fcc;
+            margin-bottom: 16px;
+            line-height: 1.4;
+            letter-spacing: 1px;
+        }
+        .pixel-sub {
+            font-family: 'Press Start 2P', monospace;
+            font-size: clamp(6px, 2vw, 9px);
+            color: #cc99ff;
+            line-height: 1.8;
+            margin-bottom: 20px;
+        }
+
+        .pixel-instructions {
+            background: #0d0520;
+            border: 2px solid #6633aa;
+            padding: 14px;
+            margin: 16px 0;
+            text-align: left;
+        }
+        .pixel-instr-row {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 10px;
+            font-family: 'Press Start 2P', monospace;
+            font-size: clamp(5px, 1.8vw, 8px);
+            color: #cc99ff;
+            line-height: 1.6;
+        }
+        .pixel-instr-row:last-child { margin-bottom: 0; }
+        .pixel-icon { font-size: 18px; flex-shrink: 0; }
+
+        .pixel-btn {
+            display: inline-block;
+            background: #ff1a6e;
+            color: #fff;
+            font-family: 'Press Start 2P', monospace;
+            font-size: clamp(8px, 2.5vw, 12px);
+            padding: 14px 24px;
+            border: none;
+            box-shadow: 4px 4px 0 #8b0050;
+            cursor: pointer;
+            margin-top: 16px;
+            letter-spacing: 1px;
+            transition: none;
+            -webkit-appearance: none;
+        }
+        .pixel-btn:active {
+            transform: translate(4px, 4px);
+            box-shadow: 0 0 0 #8b0050;
+        }
+
+        .pixel-divider {
+            height: 2px;
+            background: repeating-linear-gradient(90deg, #ff6eb4 0px, #ff6eb4 8px, transparent 8px, transparent 16px);
+            margin: 16px 0;
+        }
+
+        /* pixel hearts decoration */
+        .pixel-deco {
+            font-size: 20px;
+            letter-spacing: 6px;
+            margin-bottom: 12px;
+            animation: pixel-flash 1s steps(1) infinite;
+        }
+        @keyframes pixel-flash {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.3; }
+        }
+
+        /* ===== MOBILE D-PAD ===== */
+        .dpad-container {
+            position: fixed;
+            bottom: 24px;
+            left: 50%;
+            transform: translateX(-50%);
+            display: none;
+            z-index: 6;
+            user-select: none;
+        }
+        .dpad-container.show { display: block; }
+
+        .dpad {
+            position: relative;
+            width: 140px;
+            height: 140px;
+        }
+        .dpad-btn {
+            position: absolute;
+            width: 44px;
+            height: 44px;
+            background: rgba(255, 110, 180, 0.25);
+            border: 2px solid #ff6eb4;
+            box-shadow: 3px 3px 0 #8b0050;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-family: 'Press Start 2P', monospace;
+            font-size: 14px;
+            color: #ff9fcc;
+            cursor: pointer;
+            -webkit-tap-highlight-color: transparent;
+        }
+        .dpad-btn:active, .dpad-btn.pressed {
+            background: rgba(255, 26, 110, 0.6);
+            transform: translate(2px, 2px);
+            box-shadow: 1px 1px 0 #8b0050;
+        }
+        .dpad-up    { top: 0;    left: 48px; }
+        .dpad-down  { bottom: 0; left: 48px; }
+        .dpad-left  { top: 48px; left: 0; }
+        .dpad-right { top: 48px; right: 0; }
+        .dpad-center {
+            position: absolute;
+            top: 48px; left: 48px;
+            width: 44px; height: 44px;
+            background: #1a0a2e;
+            border: 2px solid #6633aa;
+        }
+
+        .hidden { display: none !important; }
+
+        /* ===== PIXEL LOSE SCREEN ===== */
+        .hp-bar-container {
+            display: flex;
+            gap: 6px;
+            justify-content: center;
+            margin: 8px 0 16px;
+        }
+        .hp-pixel {
+            width: 22px;
+            height: 20px;
+            font-size: 16px;
+            line-height: 20px;
+            text-align: center;
+        }
+
+        /* ===== VALENTINE WINDOWS ===== */
+        .valentine-window {
+            display: none;
+            position: fixed;
+            top: 0; left: 0;
+            width: 100%; height: 100%;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+            z-index: 20;
+            overflow: hidden;
+        }
+        .valentine-window.active {
+            display: flex;
+            animation: fadeIn 0.5s ease;
+        }
+        @keyframes fadeIn {
+            from { opacity: 0; transform: scale(0.97); }
+            to { opacity: 1; transform: scale(1); }
+        }
+
+        .valentine-window-1 { background: #FF9398; }
+        .valentine-window-2 { background: linear-gradient(180deg, #FFF5F5 0%, #FFFFFF 100%); }
+        .valentine-window-3 { background: linear-gradient(135deg, #FF9398 0%, #D14836 100%); }
+        .valentine-window-4 { background: linear-gradient(135deg, #FF9398 0%, #D14836 100%); }
+        .valentine-window-5 { background: linear-gradient(135deg, #FF9398 0%, #D14836 100%); }
+
+        .valentine-container {
+            width: 100%;
+            max-width: 420px;
+            position: relative;
+            z-index: 2;
+        }
+
+        /* Window 1 */
+        .hero-heart {
+            width: 160px; height: 140px;
+            margin: 0 auto 32px;
+            animation: heart-beat 1.8s ease-in-out infinite;
+        }
+        .hero-heart svg { width: 100%; height: 100%; filter: drop-shadow(0 10px 24px rgba(209,72,54,0.35)); }
+        @keyframes heart-beat {
+            0%, 100% { transform: scale(1); }
+            50% { transform: scale(1.06); }
+        }
+        .greeting-title {
+            font-family: 'Dancing Script', cursive;
+            font-size: clamp(36px, 10vw, 52px);
+            font-weight: 700;
+            color: white;
+            text-align: center;
+            margin-bottom: 10px;
+            text-shadow: 0 2px 10px rgba(209,72,54,0.3);
+        }
+        .greeting-subtitle {
+            font-size: clamp(13px, 3.5vw, 18px);
+            font-weight: 500;
+            color: rgba(255,255,255,0.9);
+            text-align: center;
+            margin-bottom: 40px;
+            font-family: 'Dancing Script', cursive;
+        }
+
+        /* Shared button */
+        .btn-primary {
+            display: block;
+            width: 100%;
+            padding: 16px 32px;
+            background: #2779a7;
+            color: white;
+            font-family: 'Dancing Script', cursive;
+            font-size: clamp(16px, 4.5vw, 20px);
+            font-weight: 700;
+            border: none;
+            border-radius: 50px;
+            cursor: pointer;
+            box-shadow: 0 4px 15px rgba(39,121,167,0.4);
+            transition: transform 0.1s, box-shadow 0.1s;
+        }
+        .btn-primary:active { transform: scale(0.95); box-shadow: 0 2px 8px rgba(39,121,167,0.3); }
+
+        /* Window 2 */
+        .message-card {
+            background: white;
+            border-radius: 24px;
+            padding: clamp(20px, 5vw, 32px);
+            box-shadow: 0 10px 40px rgba(0,0,0,0.08);
+        }
+        .message-header {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin-bottom: 20px;
+        }
+        .message-icon {
+            width: 46px; height: 46px;
+            background: linear-gradient(135deg, #FF9398, #D14836);
+            border-radius: 13px;
+            display: flex; align-items: center; justify-content: center;
+            font-size: 22px; flex-shrink: 0;
+        }
+        .message-title {
+            font-size: clamp(18px, 5vw, 24px);
+            font-weight: 700;
+            color: #2D3436;
+        }
+        .qualities {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            margin-bottom: 20px;
+        }
+        .quality-tag {
+            padding: 7px 14px;
+            background: white;
+            border: 2px solid #FF9398;
+            border-radius: 50px;
+            font-size: clamp(11px, 3vw, 14px);
+            font-weight: 500;
+            color: #D14836;
+        }
+        .message-text {
+            background: rgba(255,147,152,0.1);
+            border-radius: 16px;
+            padding: clamp(16px, 4vw, 24px);
+            margin-bottom: 20px;
+        }
+        .message-text p {
+            font-size: clamp(13px, 3.5vw, 16px);
+            line-height: 1.7;
+            color: #2D3436;
+            margin-bottom: 10px;
+            font-family: 'Dancing Script', cursive;
+        }
+        .message-text p:last-child { margin-bottom: 0; }
+        .message-signature {
+            font-family: 'Dancing Script', cursive;
+            font-size: clamp(18px, 5vw, 22px);
+            color: #D14836;
+            text-align: right;
+        }
+
+        /* Window 3 */
+        .question-card {
+            background: white;
+            border-radius: 28px;
+            padding: clamp(28px, 7vw, 44px) clamp(20px, 6vw, 36px);
+            text-align: center;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.15);
+        }
+        .question-title {
+            font-family: 'Dancing Script', cursive;
+            font-size: clamp(28px, 8vw, 40px);
+            font-weight: 700;
+            color: #D14836;
+            margin-bottom: 36px;
+            line-height: 1.25;
+        }
+        .buttons-row {
+            display: flex;
+            gap: 14px;
+            justify-content: center;
+            position: relative;
+            min-height: 60px;
+        }
+        .btn-yes {
+            flex: 1;
+            max-width: 140px;
+            padding: 16px 24px;
+            background: #2779a7;
+            color: white;
+            font-family: 'Dancing Script', cursive;
+            font-size: clamp(15px, 4.5vw, 19px);
+            font-weight: 700;
+            border: none;
+            border-radius: 50px;
+            cursor: pointer;
+        }
+        .btn-no {
+            flex: 1;
+            max-width: 140px;
+            padding: 16px 24px;
+            background: white;
+            color: #D14836;
+            font-family: 'Dancing Script', cursive;
+            font-size: clamp(15px, 4.5vw, 19px);
+            font-weight: 700;
+            border: 2px solid #D14836;
+            border-radius: 50px;
+            cursor: pointer;
+            position: relative;
+        }
+
+        /* Window 4 */
+        .trick-card {
+            background: white;
+            border-radius: 28px;
+            padding: clamp(28px, 7vw, 44px) clamp(20px, 6vw, 36px);
+            text-align: center;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.15);
+        }
+        .trick-emoji { font-size: 56px; margin-bottom: 18px; }
+        .trick-title {
+            font-family: 'Dancing Script', cursive;
+            font-size: clamp(30px, 9vw, 44px);
+            font-weight: 700;
+            color: #D14836;
+            margin-bottom: 10px;
+        }
+        .trick-text {
+            font-size: clamp(14px, 4vw, 18px);
+            color: #2D3436;
+            margin-bottom: 28px;
+            font-family: 'Dancing Script', cursive;
+        }
+
+        /* Window 5 */
+        .final-card {
+            background: white;
+            border-radius: 28px;
+            padding: clamp(24px, 6vw, 36px) clamp(18px, 5vw, 28px);
+            text-align: center;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.15);
+        }
+        .final-emoji {
+            font-size: 44px; margin-bottom: 14px;
+            animation: bounce 0.9s ease infinite;
+        }
+        @keyframes bounce {
+            0%, 100% { transform: translateY(0); }
+            50% { transform: translateY(-10px); }
+        }
+        .final-title {
+            font-family: 'Dancing Script', cursive;
+            font-size: clamp(36px, 10vw, 48px);
+            font-weight: 700;
+            color: #D14836;
+            margin-bottom: 20px;
+        }
+        .photo-frame {
+            width: min(200px, 50vw);
+            height: min(200px, 50vw);
+            margin: 0 auto 24px;
+            border-radius: 50%;
+            overflow: hidden;
+            border: 4px solid #FF9398;
+            box-shadow: 0 10px 32px rgba(209,72,54,0.3);
+        }
+        .photo-frame img { width: 100%; height: 100%; object-fit: cover; }
+        .final-message {
+            font-family: 'Dancing Script', cursive;
+            font-size: clamp(18px, 5vw, 26px);
+            color: #2D3436;
+            line-height: 1.4;
+        }
+
+        /* Confetti */
+        .confetti-container {
+            position: absolute;
+            top: 0; left: 0;
+            width: 100%; height: 100%;
+            pointer-events: none;
+            overflow: hidden;
+            z-index: 1;
+        }
+        .confetti {
+            position: absolute;
+            animation: confetti-fall 4s linear infinite;
+        }
+        @keyframes confetti-fall {
+            from { transform: translateY(-80px) rotate(0deg); opacity: 1; }
+            to { transform: translateY(110vh) rotate(720deg); opacity: 0; }
+        }
+
+        /* Win banner on game over */
+        .win-banner-pixel {
+            font-family: 'Press Start 2P', monospace;
+            font-size: clamp(7px, 2vw, 11px);
+            color: #ffdd44;
+            text-shadow: 2px 2px 0 #a07700;
+            margin-bottom: 16px;
+            line-height: 1.8;
+        }
+    </style>
+</head>
+<body>
+
+<!-- ===== GAME CANVAS ===== -->
+<canvas id="game"></canvas>
+
+<!-- ===== GAME UI ===== -->
+<div id="gameUI" class="game-ui">
+    <div class="pixel-panel">
+        <span class="score-label">ПОЙМАНО</span>
+        <span class="score-value"><span id="score">0</span><span class="score-max">/15</span></span>
+    </div>
+    <div class="pixel-panel">
+        <span class="score-label">ЖИЗНИ</span>
+        <div class="hp-bar-container" id="hpBar"></div>
+    </div>
+</div>
+
+<!-- ===== D-PAD CONTROLS ===== -->
+<div id="dpadContainer" class="dpad-container hidden">
+    <div class="dpad">
+        <div class="dpad-btn dpad-up" id="btnUp">▲</div>
+        <div class="dpad-btn dpad-left" id="btnLeft">◀</div>
+        <div class="dpad-center"></div>
+        <div class="dpad-btn dpad-right" id="btnRight">▶</div>
+        <div class="dpad-btn dpad-down" id="btnDown">▼</div>
+    </div>
+</div>
+
+<!-- ===== START SCREEN ===== -->
+<div id="startScreen" class="screen">
+    <div class="screen-bg"></div>
+    <div class="pixel-box">
+        <div class="pixel-deco">💘 💕 💘</div>
+        <div class="pixel-title">QUPI<br>HEARTS</div>
+        <div class="pixel-divider"></div>
+        <div class="pixel-sub">Помоги ангелочку собрать сердечки!</div>
+        <div class="pixel-instructions">
+            <div class="pixel-instr-row"><span class="pixel-icon">🕹️</span>Управляй стрелками или джойстиком</div>
+            <div class="pixel-instr-row"><span class="pixel-icon">💕</span>Сердечко = 1 очко</div>
+            <div class="pixel-instr-row"><span class="pixel-icon">💋</span>Поцелуй = 2 очка!</div>
+            <div class="pixel-instr-row"><span class="pixel-icon">🎯</span>Собери 15 для победы!</div>
+            <div class="pixel-instr-row"><span class="pixel-icon">💔</span>5 промахов — игра окончена</div>
+        </div>
+        <button class="pixel-btn" onclick="startGame()">▶ СТАРТ ◀</button>
+    </div>
+</div>
+
+<!-- ===== LOSE SCREEN ===== -->
+<div id="loseScreen" class="screen hidden">
+    <div class="screen-bg"></div>
+    <div class="pixel-box">
+        <div class="pixel-deco">💔 💔 💔</div>
+        <div class="pixel-title" style="color:#ff6644;">GAME<br>OVER</div>
+        <div class="pixel-divider"></div>
+        <div class="pixel-sub">Поймано: <span id="loseScore" style="color:#ff4daa;">0</span> / 15<br><br>Ангелочек расстроен...<br>Попробуй ещё раз!</div>
+        <button class="pixel-btn" onclick="startGame()">↺ ЕЩЁ РАЗ</button>
+    </div>
+</div>
+
+<!-- ===== WIN SCREEN (transition to Valentine) ===== -->
+<div id="winScreen" class="screen hidden">
+    <div class="screen-bg"></div>
+    <div class="pixel-box">
+        <div class="pixel-deco" style="animation: none; opacity:1;">🏆 ⭐ 🏆</div>
+        <div class="pixel-title" style="color:#ffdd44; text-shadow: 3px 3px 0 #a07700;">ПОБЕДА!</div>
+        <div class="pixel-divider"></div>
+        <div class="win-banner-pixel">ТЫ СОБРАЛА 15<br>СЕРДЕЧЕК! 💕<br><br>ЗА ЭТО ТЕБЕ<br>ОСОБЫЙ ПРИЗ...</div>
+        <button class="pixel-btn" style="background:#D14836; box-shadow: 4px 4px 0 #7a1a08;" onclick="openValentine()">❤ ПОЛУЧИТЬ ПРИЗ ❤</button>
+    </div>
+</div>
+
+<!-- ===== VALENTINE: Window 1 ===== -->
+<div class="valentine-window valentine-window-1" id="valWindow1">
+    <div class="valentine-container">
+        <div class="hero-heart">
+            <svg viewBox="0 0 200 180" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <path d="M100 170L85.5 156.5C35 111.5 5 84.5 5 51C5 24 26.5 3 53.5 3C69.5 3 84.5 10.5 93.5 22C95.5 24.5 97.5 27 100 27C102.5 27 104.5 24.5 106.5 22C115.5 10.5 130.5 3 146.5 3C173.5 3 195 24 195 51C195 84.5 165 111.5 114.5 156.5L100 170Z"
+                      fill="#D14836" stroke="#FFFFFF" stroke-width="4"/>
+            </svg>
+        </div>
+        <h1 class="greeting-title">Настенька!</h1>
+        <p class="greeting-subtitle">У меня для тебя особенная валентинка 💌</p>
+        <button class="btn-primary" onclick="showValWindow(2)">Открыть 💝</button>
+    </div>
+</div>
+
+<!-- ===== VALENTINE: Window 2 ===== -->
+<div class="valentine-window valentine-window-2" id="valWindow2">
+    <div class="valentine-container">
+        <div class="message-card">
+            <div class="message-header">
+                <div class="message-icon">💌</div>
+                <h2 class="message-title">Моё послание</h2>
+            </div>
+            <div class="qualities">
+                <span class="quality-tag">💖 Милая</span>
+                <span class="quality-tag">✨ Особенная</span>
+                <span class="quality-tag">🌟 Удивительная</span>
+                <span class="quality-tag">💕 Любимая</span>
+            </div>
+            <div class="message-text">
+                <p>Ты делаешь каждый мой день ярче и счастливее.</p>
+                <p>Рядом с тобой я чувствую себя самым счастливым человеком на свете.</p>
+                <p>Ты — моё солнышко, моя радость, моя любовь.</p>
+            </div>
+            <p class="message-signature">С любовью... 💕</p>
+            <button class="btn-primary" onclick="showValWindow(3)" style="margin-top: 24px;">Продолжить →</button>
+        </div>
+    </div>
+</div>
+
+<!-- ===== VALENTINE: Window 3 ===== -->
+<div class="valentine-window valentine-window-3" id="valWindow3">
+    <div class="valentine-container">
+        <div class="question-card">
+            <h2 class="question-title">Ты будешь<br>моей валентинкой? 💘</h2>
+            <div class="buttons-row" id="buttonsRow">
+                <button class="btn-yes" onclick="showValWindow(5)">Да ❤️</button>
+                <button class="btn-no" id="btnNo">Нет 💔</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ===== VALENTINE: Window 4 ===== -->
+<div class="valentine-window valentine-window-4" id="valWindow4">
+    <div class="valentine-container">
+        <div class="trick-card">
+            <div class="trick-emoji">😏</div>
+            <h2 class="trick-title">Обманул!</h2>
+            <p class="trick-text">Ты не можешь отказаться!<br>От любви не убежишь 💘</p>
+            <button class="btn-primary" onclick="showValWindow(5)">Да ❤️</button>
+        </div>
+    </div>
+</div>
+
+<!-- ===== VALENTINE: Window 5 ===== -->
+<div class="valentine-window valentine-window-5" id="valWindow5">
+    <div class="confetti-container" id="confettiContainer"></div>
+    <div class="valentine-container">
+        <div class="final-card">
+            <div class="final-emoji">🎉</div>
+            <h2 class="final-title">УРА!</h2>
+            <div class="photo-frame">
+                <img src="photo.jpg" alt="💕" onerror="this.style.display='none'; this.parentElement.innerHTML='<span style=\'font-size:64px;line-height:200px\'>💕</span>'">
+            </div>
+            <p class="final-message">
+                Киса, я так тебя люблю!<br>
+                <span style="color:#D14836">💕 С Днём Влюблённых 💕</span>
+            </p>
+        </div>
+    </div>
+</div>
+
+<script>
+/* =====================================================
+   QUPIHEARTS — 8-bit Retro Top-Down Game
+   Telegram Mini App for Valentine's Day
+   ===================================================== */
+
+// ── Telegram WebApp Init ──
+const tg = window.Telegram?.WebApp;
+if (tg) {
+    tg.expand();
+    tg.disableVerticalSwipes?.();
+    tg.setHeaderColor?.('#1a0a2e');
+    tg.setBackgroundColor?.('#1a0a2e');
+}
+
+// ── Canvas Setup ──
+const canvas = document.getElementById('game');
+const ctx = canvas.getContext('2d');
+
+function resize() {
+    canvas.width  = window.innerWidth;
+    canvas.height = window.innerHeight;
+}
+resize();
+window.addEventListener('resize', resize);
+
+// ── Pixel Scale (for consistent pixel art size across screens) ──
+function getScale() {
+    return Math.max(1, Math.min(3, Math.floor(Math.min(canvas.width, canvas.height) / 200)));
+}
+
+// ── Input State ──
+const keys = { up: false, down: false, left: false, right: false };
+
+// Keyboard
+document.addEventListener('keydown', e => {
+    if (e.key === 'ArrowUp'    || e.key === 'w' || e.key === 'W') keys.up    = true;
+    if (e.key === 'ArrowDown'  || e.key === 's' || e.key === 'S') keys.down  = true;
+    if (e.key === 'ArrowLeft'  || e.key === 'a' || e.key === 'A') keys.left  = true;
+    if (e.key === 'ArrowRight' || e.key === 'd' || e.key === 'D') keys.right = true;
+    e.preventDefault();
+});
+document.addEventListener('keyup', e => {
+    if (e.key === 'ArrowUp'    || e.key === 'w' || e.key === 'W') keys.up    = false;
+    if (e.key === 'ArrowDown'  || e.key === 's' || e.key === 'S') keys.down  = false;
+    if (e.key === 'ArrowLeft'  || e.key === 'a' || e.key === 'A') keys.left  = false;
+    if (e.key === 'ArrowRight' || e.key === 'd' || e.key === 'D') keys.right = false;
+});
+
+// D-Pad touch controls
+function setupDpad() {
+    const isMobile = /Android|iPhone|iPad|iPod|Touch/i.test(navigator.userAgent) ||
+                     window.matchMedia('(pointer: coarse)').matches;
+    if (isMobile) {
+        document.getElementById('dpadContainer').classList.remove('hidden');
+        document.getElementById('dpadContainer').classList.add('show');
+    }
+
+    function bindBtn(id, key) {
+        const btn = document.getElementById(id);
+        btn.addEventListener('touchstart', e => { e.preventDefault(); keys[key] = true;  btn.classList.add('pressed'); }, { passive: false });
+        btn.addEventListener('touchend',   e => { e.preventDefault(); keys[key] = false; btn.classList.remove('pressed'); }, { passive: false });
+        btn.addEventListener('touchcancel',e => { keys[key] = false; btn.classList.remove('pressed'); });
+    }
+    bindBtn('btnUp',    'up');
+    bindBtn('btnDown',  'down');
+    bindBtn('btnLeft',  'left');
+    bindBtn('btnRight', 'right');
+}
+setupDpad();
+
+// Touch swipe for fallback
+let touchStart = null;
+canvas.addEventListener('touchstart', e => { touchStart = { x: e.touches[0].clientX, y: e.touches[0].clientY }; }, { passive: true });
+canvas.addEventListener('touchend',   e => { touchStart = null; Object.keys(keys).forEach(k => keys[k] = false); }, { passive: true });
+
+// ── Game State ──
+let playing  = false;
+let gameWon  = false;
+let score    = 0;
+let missed   = 0;
+const MAX_SCORE  = 15;
+const MAX_MISSED = 5;
+let items    = [];
+let particles= [];
+let bgStars  = [];
+let bgClouds = [];
+let lastTime = 0;
+let lastSpawn= 0;
+let spawnInterval = 1800;
+let wingAnim = 0;
+let haloAnim = 0;
+
+// ── Angel ──
+const angel = {
+    x: 0, y: 0,
+    w: 0, h: 0,
+    speed: 0,
+    trail: []
+};
+
+function initAngel() {
+    const s = getScale();
+    angel.w     = 48 * s;
+    angel.h     = 48 * s;
+    angel.speed = 160; // pixels per second
+    angel.x     = canvas.width  / 2 - angel.w / 2;
+    angel.y     = canvas.height / 2 - angel.h / 2;
+    angel.trail = [];
+}
+
+// ── Background Generation ──
+function genBg() {
+    bgStars = [];
+    bgClouds = [];
+    for (let i = 0; i < 60; i++) {
+        bgStars.push({
+            x: Math.random() * canvas.width,
+            y: Math.random() * canvas.height,
+            r: Math.random() < 0.3 ? 2 : 1,
+            a: Math.random(),
+            speed: 0.3 + Math.random() * 0.4
+        });
+    }
+    for (let i = 0; i < 6; i++) {
+        bgClouds.push({
+            x: Math.random() * canvas.width,
+            y: Math.random() * canvas.height * 0.6,
+            w: 60 + Math.random() * 80,
+            h: 25 + Math.random() * 20,
+            speed: 8 + Math.random() * 12,
+            a: 0.08 + Math.random() * 0.1
+        });
+    }
+}
+
+// ── HP Bar ──
+function updateHpBar() {
+    const bar = document.getElementById('hpBar');
+    bar.innerHTML = '';
+    for (let i = 0; i < MAX_MISSED; i++) {
+        const hp = document.createElement('div');
+        hp.className = 'hp-pixel';
+        hp.textContent = i < (MAX_MISSED - missed) ? '💗' : '🖤';
+        bar.appendChild(hp);
+    }
+}
+
+// ── Item Spawning ──
+function spawnItem() {
+    const s = getScale();
+    const isKiss  = Math.random() < 0.28;
+    const margin  = 30;
+    const size    = (isKiss ? 28 : 26) * Math.max(1.5, s * 0.8);
+
+    // Spawn from top area with varied x
+    const x = margin + Math.random() * (canvas.width - margin * 2 - size);
+    const y = -size - 10;
+
+    // Slight horizontal drift
+    const vx = (Math.random() - 0.5) * 40;
+    const baseSpeed = 55 + Math.random() * 35 + score * 1.8;
+
+    items.push({
+        x, y,
+        size,
+        vx,
+        vy: baseSpeed,
+        type: isKiss ? 'kiss' : 'heart',
+        points: isKiss ? 2 : 1,
+        wobble: Math.random() * Math.PI * 2,
+        wobbleSpeed: 0.8 + Math.random() * 0.6,
+        collected: false,
+        flash: 0
+    });
+}
+
+// ── Pixel Art Drawing Functions ──
+
+// Draw a pixel art heart
+function drawPixelHeart(cx, cy, size, color, alpha) {
+    ctx.save();
+    ctx.globalAlpha = alpha || 1;
+    const p = Math.max(2, Math.floor(size / 8));
+
+    // Heart pixel map (5×4 grid scaled)
+    const heart = [
+        [0,1,1,0,1,1,0],
+        [1,1,1,1,1,1,1],
+        [1,1,1,1,1,1,1],
+        [0,1,1,1,1,1,0],
+        [0,0,1,1,1,0,0],
+        [0,0,0,1,0,0,0]
+    ];
+    const cols = heart[0].length;
+    const rows = heart.length;
+    const ox = cx - (cols * p) / 2;
+    const oy = cy - (rows * p) / 2;
+
+    ctx.fillStyle = color || '#ff2266';
+    for (let r = 0; r < rows; r++) {
+        for (let c = 0; c < cols; c++) {
+            if (heart[r][c]) {
+                ctx.fillRect(ox + c * p, oy + r * p, p - 1, p - 1);
+            }
+        }
+    }
+    // highlight pixel
+    ctx.fillStyle = '#ff88aa';
+    if (p >= 3) ctx.fillRect(ox + 2 * p, oy + p * 0.5, p - 1, p - 1);
+    ctx.restore();
+}
+
+// Draw a pixel art kiss/lips
+function drawPixelKiss(cx, cy, size) {
+    ctx.save();
+    const p = Math.max(2, Math.floor(size / 9));
+
+    const lips = [
+        [0,0,1,1,0,1,1,0,0],
+        [0,1,1,1,1,1,1,1,0],
+        [1,1,1,1,1,1,1,1,1],
+        [1,1,1,1,1,1,1,1,1],
+        [0,1,1,1,1,1,1,1,0],
+        [0,0,1,1,1,1,1,0,0],
+        [0,0,0,1,1,1,0,0,0]
+    ];
+    const cols = lips[0].length;
+    const rows = lips.length;
+    const ox = cx - (cols * p) / 2;
+    const oy = cy - (rows * p) / 2;
+
+    ctx.fillStyle = '#ff1a6e';
+    for (let r = 0; r < rows; r++) {
+        for (let c = 0; c < cols; c++) {
+            if (lips[r][c]) {
+                ctx.fillRect(ox + c * p, oy + r * p, p - 1, p - 1);
+            }
+        }
+    }
+    // Lip line
+    ctx.fillStyle = '#cc0055';
+    for (let c = 2; c < 7; c++) {
+        ctx.fillRect(ox + c * p, oy + 2 * p, p - 1, 1);
+    }
+    // shine
+    ctx.fillStyle = 'rgba(255,255,255,0.7)';
+    ctx.fillRect(ox + 2 * p, oy + p * 0.5, p - 1, p - 1);
+    ctx.restore();
+}
+
+// Draw the angel top-down pixel art
+function drawAngel(x, y, dt) {
+    const s = getScale();
+    const p = Math.max(2, s * 2);
+    const cx = x + angel.w / 2;
+    const cy = y + angel.h / 2;
+
+    wingAnim += dt * 3.5;
+    haloAnim += dt * 1.2;
+    const wingFlap = Math.sin(wingAnim) * 0.3;
+
+    ctx.save();
+
+    // Trail effect
+    angel.trail.unshift({ x: cx, y: cy, a: 0.18 });
+    if (angel.trail.length > 6) angel.trail.pop();
+    angel.trail.forEach((t, i) => {
+        t.a -= dt * 0.08;
+        drawPixelHeart(t.x, t.y, 6 * s, '#ff6eb4', Math.max(0, t.a));
+    });
+
+    // Shadow
+    ctx.fillStyle = 'rgba(0,0,0,0.15)';
+    ctx.save();
+    ctx.scale(1, 0.4);
+    ctx.beginPath();
+    ctx.arc(cx, (cy + angel.h * 0.3) / 0.4, angel.w * 0.28, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.restore();
+
+    // Wings (top-down = extend left & right)
+    const wingW = angel.w * (0.55 + wingFlap * 0.2);
+    const wingH = angel.h * 0.22;
+
+    function drawWing(side) {
+        const wx = cx + side * angel.w * 0.18;
+        const wy = cy;
+        ctx.save();
+        ctx.scale(side, 1);
+        ctx.globalAlpha = 0.85;
+        // Outer wing
+        ctx.fillStyle = '#f0f0ff';
+        ctx.beginPath();
+        ctx.ellipse(wx + side * wingW * 0.55, wy, wingW, wingH, -side * 0.2, 0, Math.PI * 2);
+        ctx.fill();
+        // Wing veins
+        ctx.strokeStyle = '#d0c8ff';
+        ctx.lineWidth = 1;
+        for (let i = 0; i < 3; i++) {
+            ctx.beginPath();
+            ctx.moveTo(wx + side * 8 * s, wy);
+            ctx.lineTo(wx + side * wingW, wy - wingH * (0.3 - i * 0.3));
+            ctx.stroke();
+        }
+        ctx.restore();
+    }
+    drawWing(-1);
+    drawWing(1);
+
+    // Body (circular, top-down view)
+    const bodyR = angel.w * 0.28;
+
+    // Body gradient
+    const grad = ctx.createRadialGradient(cx - bodyR * 0.2, cy - bodyR * 0.2, 1, cx, cy, bodyR);
+    grad.addColorStop(0, '#ffe5d0');
+    grad.addColorStop(1, '#ffb899');
+    ctx.fillStyle = grad;
+    ctx.beginPath();
+    ctx.arc(cx, cy, bodyR, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Body outline (pixel style)
+    ctx.strokeStyle = '#d4845a';
+    ctx.lineWidth = Math.max(1, s);
+    ctx.stroke();
+
+    // Face from top-down: two eyes (dots) + rosy cheeks
+    const eyeR = Math.max(2, p * 0.7);
+    const eyeOff = bodyR * 0.3;
+    ctx.fillStyle = '#3d2020';
+    ctx.fillRect(cx - eyeOff - eyeR, cy - eyeOff - eyeR, eyeR * 2, eyeR * 2);
+    ctx.fillRect(cx + eyeOff - eyeR, cy - eyeOff - eyeR, eyeR * 2, eyeR * 2);
+
+    // Blush
+    ctx.globalAlpha = 0.45;
+    ctx.fillStyle = '#ff9090';
+    ctx.beginPath();
+    ctx.ellipse(cx - bodyR * 0.5, cy + bodyR * 0.1, bodyR * 0.22, bodyR * 0.15, 0, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.beginPath();
+    ctx.ellipse(cx + bodyR * 0.5, cy + bodyR * 0.1, bodyR * 0.22, bodyR * 0.15, 0, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.globalAlpha = 1;
+
+    // Halo (spinning ring above)
+    const haloY = cy - bodyR - p * 2;
+    const haloRx = bodyR * 0.7;
+    const haloRy = bodyR * 0.18;
+    const haloShift = Math.sin(haloAnim) * 2;
+    ctx.strokeStyle = '#FFD700';
+    ctx.lineWidth = Math.max(2, p * 0.8);
+    ctx.shadowColor = '#FFD700';
+    ctx.shadowBlur = 6;
+    ctx.beginPath();
+    ctx.ellipse(cx + haloShift, haloY, haloRx, haloRy, haloAnim * 0.3, 0, Math.PI * 2);
+    ctx.stroke();
+    ctx.shadowBlur = 0;
+
+    // Tiny bow & arrow (icon below the body)
+    const arrowX = cx + bodyR * 0.6;
+    const arrowY = cy + bodyR * 0.5;
+    ctx.strokeStyle = '#8B4513';
+    ctx.lineWidth = Math.max(1.5, p * 0.6);
+    ctx.beginPath();
+    ctx.moveTo(arrowX - 6 * s, arrowY + 4 * s);
+    ctx.lineTo(arrowX + 6 * s, arrowY - 4 * s);
+    ctx.stroke();
+    ctx.fillStyle = '#cc3300';
+    ctx.beginPath();
+    ctx.moveTo(arrowX + 6 * s, arrowY - 4 * s);
+    ctx.lineTo(arrowX + 9 * s, arrowY - 7 * s);
+    ctx.lineTo(arrowX + 3 * s, arrowY - 1 * s);
+    ctx.closePath();
+    ctx.fill();
+
+    ctx.restore();
+}
+
+// Draw background (top-down sky view)
+function drawBackground() {
+    const W = canvas.width, H = canvas.height;
+
+    // Sky gradient
+    const sky = ctx.createLinearGradient(0, 0, 0, H);
+    sky.addColorStop(0, '#1a0a2e');
+    sky.addColorStop(0.5, '#2d1458');
+    sky.addColorStop(1, '#3d1a6e');
+    ctx.fillStyle = sky;
+    ctx.fillRect(0, 0, W, H);
+
+    // Grid (top-down view feel)
+    ctx.strokeStyle = 'rgba(180, 100, 220, 0.08)';
+    ctx.lineWidth = 1;
+    const gridSize = 40;
+    for (let x = 0; x < W; x += gridSize) {
+        ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, H); ctx.stroke();
+    }
+    for (let y = 0; y < H; y += gridSize) {
+        ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(W, y); ctx.stroke();
+    }
+
+    // Stars/sparkles
+    bgStars.forEach(star => {
+        star.a += star.speed * 0.01;
+        const alpha = (Math.sin(star.a) + 1) / 2;
+        ctx.fillStyle = `rgba(255, 220, 255, ${alpha * 0.7})`;
+        ctx.fillRect(star.x, star.y, star.r, star.r);
+    });
+
+    // Floating clouds (top-down: soft blobs)
+    bgClouds.forEach(cloud => {
+        cloud.x += cloud.speed * 0.016;
+        if (cloud.x > W + cloud.w) cloud.x = -cloud.w;
+        ctx.save();
+        ctx.globalAlpha = cloud.a;
+        ctx.fillStyle = '#ffffff';
+        ctx.beginPath();
+        ctx.ellipse(cloud.x, cloud.y, cloud.w, cloud.h, 0, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.restore();
+    });
+}
+
+// ── Particle Effects ──
+function spawnCollectParticles(x, y, type) {
+    const colors = type === 'heart' ? ['#ff2266', '#ff6eb4', '#ffaad4'] : ['#ff1a6e', '#ff88bb', '#ffffff'];
+    for (let i = 0; i < 10; i++) {
+        const angle = (i / 10) * Math.PI * 2;
+        const speed = 50 + Math.random() * 80;
+        particles.push({
+            x, y,
+            vx: Math.cos(angle) * speed,
+            vy: Math.sin(angle) * speed,
+            life: 0.8,
+            maxLife: 0.8,
+            color: colors[Math.floor(Math.random() * colors.length)],
+            size: 3 + Math.random() * 4,
+            type: Math.random() < 0.5 ? 'heart' : 'dot'
+        });
+    }
+}
+
+function updateParticles(dt) {
+    for (let i = particles.length - 1; i >= 0; i--) {
+        const p = particles[i];
+        p.x += p.vx * dt;
+        p.y += p.vy * dt;
+        p.vy += 40 * dt; // gravity
+        p.life -= dt;
+        if (p.life <= 0) { particles.splice(i, 1); continue; }
+
+        const alpha = p.life / p.maxLife;
+        if (p.type === 'heart') {
+            drawPixelHeart(p.x, p.y, p.size * 2, p.color, alpha);
+        } else {
+            ctx.fillStyle = p.color;
+            ctx.globalAlpha = alpha;
+            ctx.fillRect(p.x, p.y, p.size, p.size);
+            ctx.globalAlpha = 1;
+        }
+    }
+}
+
+// ── Score Flash ──
+const scoreFlashes = [];
+function spawnScoreFlash(x, y, points) {
+    scoreFlashes.push({ x, y, text: '+' + points, life: 0.9, vy: -60 });
+}
+
+function updateScoreFlashes(dt) {
+    for (let i = scoreFlashes.length - 1; i >= 0; i--) {
+        const f = scoreFlashes[i];
+        f.y += f.vy * dt;
+        f.life -= dt;
+        if (f.life <= 0) { scoreFlashes.splice(i, 1); continue; }
+        ctx.save();
+        ctx.globalAlpha = f.life;
+        ctx.font = `bold ${Math.max(10, getScale() * 8)}px 'Press Start 2P'`;
+        ctx.fillStyle = '#ffdd44';
+        ctx.strokeStyle = '#8b4400';
+        ctx.lineWidth = 2;
+        ctx.textAlign = 'center';
+        ctx.strokeText(f.text, f.x, f.y);
+        ctx.fillText(f.text, f.x, f.y);
+        ctx.restore();
+    }
+}
+
+// ── Main Game Loop ──
+let rafId = null;
+
+function gameLoop(timestamp) {
+    if (!playing) return;
+
+    const dt = Math.min(0.05, (timestamp - lastTime) / 1000); // cap dt at 50ms
+    lastTime = timestamp;
+
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    drawBackground();
+
+    // Move angel
+    const spd = angel.speed * dt;
+    if (keys.left)  { angel.x -= spd; }
+    if (keys.right) { angel.x += spd; }
+    if (keys.up)    { angel.y -= spd; }
+    if (keys.down)  { angel.y += spd; }
+
+    // Clamp
+    angel.x = Math.max(0, Math.min(canvas.width  - angel.w, angel.x));
+    angel.y = Math.max(0, Math.min(canvas.height - angel.h - 80, angel.y)); // leave room for dpad
+
+    // Spawn items
+    const now = timestamp;
+    if (now - lastSpawn > spawnInterval) {
+        spawnItem();
+        // Occasionally spawn 2 at once as difficulty ramps up
+        if (score > 6 && Math.random() < 0.3) spawnItem();
+        lastSpawn = now;
+        spawnInterval = Math.max(800, 1800 - score * 40);
+    }
+
+    // Update & draw items
+    for (let i = items.length - 1; i >= 0; i--) {
+        const item = items[i];
+        item.wobble += item.wobbleSpeed * dt;
+        item.x += item.vx * dt;
+        item.y += item.vy * dt;
+
+        // Wall bounce for vx
+        if (item.x < 0 || item.x + item.size > canvas.width) item.vx *= -1;
+
+        // Draw
+        const wobbleX = Math.sin(item.wobble) * 4;
+        const sx = item.x + item.size / 2 + wobbleX;
+        const sy = item.y + item.size / 2;
+
+        if (item.type === 'heart') {
+            drawPixelHeart(sx, sy, item.size, '#ff2266', 1);
+        } else {
+            drawPixelKiss(sx, sy, item.size);
+        }
+
+        // Glow
+        ctx.save();
+        ctx.globalAlpha = 0.25 + Math.abs(Math.sin(item.wobble)) * 0.15;
+        const glowColor = item.type === 'heart' ? '#ff6eb4' : '#ff1a6e';
+        ctx.shadowColor = glowColor;
+        ctx.shadowBlur = 12;
+        if (item.type === 'heart') {
+            drawPixelHeart(sx, sy, item.size * 0.5, glowColor, 1);
+        }
+        ctx.restore();
+
+        // Collision with angel
+        const acx = angel.x + angel.w / 2;
+        const acy = angel.y + angel.h / 2;
+        const dist = Math.hypot(sx - acx, sy - acy);
+        const catchR = angel.w * 0.42;
+
+        if (dist < catchR + item.size * 0.4) {
+            spawnCollectParticles(sx, sy, item.type);
+            spawnScoreFlash(sx, sy - 20, item.points);
+            score += item.points;
+            document.getElementById('score').textContent = score;
+            items.splice(i, 1);
+
+            if (score >= MAX_SCORE) {
+                playing = false;
+                gameWon = true;
+                showWinScreen();
+                return;
+            }
+            continue;
+        }
+
+        // Missed
+        if (item.y > canvas.height + 20) {
+            items.splice(i, 1);
+            missed++;
+            updateHpBar();
+            if (missed >= MAX_MISSED) {
+                playing = false;
+                showLoseScreen();
+                return;
+            }
+        }
+    }
+
+    drawAngel(angel.x, angel.y, dt);
+    updateParticles(dt);
+    updateScoreFlashes(dt);
+
+    // Score flash on canvas
+    const s = getScale();
+    ctx.save();
+    ctx.font = `${8 * s}px 'Press Start 2P'`;
+    ctx.fillStyle = '#ff9fcc';
+    ctx.textAlign = 'left';
+    ctx.restore();
+
+    rafId = requestAnimationFrame(gameLoop);
+}
+
+// ── Game Control ──
+function startGame() {
+    score   = 0;
+    missed  = 0;
+    items   = [];
+    particles = [];
+    scoreFlashes.length = 0;
+    gameWon = false;
+    lastSpawn = 0;
+    lastTime  = 0;
+    spawnInterval = 1800;
+    wingAnim = 0;
+    haloAnim = 0;
+
+    genBg();
+    initAngel();
+    updateHpBar();
+
+    document.getElementById('score').textContent = '0';
+    document.getElementById('startScreen').classList.add('hidden');
+    document.getElementById('loseScreen').classList.add('hidden');
+    document.getElementById('winScreen').classList.add('hidden');
+    document.getElementById('gameUI').classList.add('show');
+    document.getElementById('dpadContainer').classList.remove('hidden');
+
+    // Hide valentine windows
+    document.querySelectorAll('.valentine-window').forEach(w => w.classList.remove('active'));
+
+    canvas.style.display = 'block';
+    playing = true;
+    if (rafId) cancelAnimationFrame(rafId);
+    rafId = requestAnimationFrame(ts => { lastTime = ts; gameLoop(ts); });
+}
+
+function showLoseScreen() {
+    document.getElementById('gameUI').classList.remove('show');
+    document.getElementById('dpadContainer').classList.add('hidden');
+    document.getElementById('loseScore').textContent = score;
+    document.getElementById('loseScreen').classList.remove('hidden');
+}
+
+function showWinScreen() {
+    document.getElementById('gameUI').classList.remove('show');
+    document.getElementById('dpadContainer').classList.add('hidden');
+    document.getElementById('winScreen').classList.remove('hidden');
+
+    // Notify Telegram
+    if (tg) {
+        try { tg.sendData(JSON.stringify({ type: 'game_win', score, won: true })); } catch(e) {}
+        try { tg.HapticFeedback?.notificationOccurred('success'); } catch(e) {}
+    }
+}
+
+function openValentine() {
+    document.getElementById('winScreen').classList.add('hidden');
+    canvas.style.display = 'none';
+    showValWindow(1);
+}
+
+// ── Valentine Sequence ──
+function showValWindow(num) {
+    document.querySelectorAll('.valentine-window').forEach(w => w.classList.remove('active'));
+    const win = document.getElementById('valWindow' + num);
+    if (win) {
+        win.classList.add('active');
+        if (num === 5) startConfetti();
+    }
+    if (tg) {
+        try { tg.HapticFeedback?.impactOccurred('light'); } catch(e) {}
+    }
+}
+
+// ── "Нет" button escape logic ──
+let noClicks = 0;
+const btnNo = document.getElementById('btnNo');
+const isTouchDevice = window.matchMedia('(pointer: coarse)').matches;
+
+if (!isTouchDevice) {
+    btnNo.addEventListener('mouseenter', () => {
+        const row = document.getElementById('buttonsRow');
+        const rect = row.getBoundingClientRect();
+        btnNo.style.position = 'absolute';
+        btnNo.style.left = Math.max(0, Math.random() * (rect.width - 140)) + 'px';
+        btnNo.style.top  = (Math.random() * 60 - 20) + 'px';
+    });
+    btnNo.addEventListener('click', () => {
+        noClicks++;
+        if (noClicks >= 2) showValWindow(4);
+    });
+} else {
+    btnNo.addEventListener('click', e => {
+        e.preventDefault();
+        noClicks++;
+        if (noClicks === 1) {
+            const row = document.getElementById('buttonsRow');
+            const rect = row.getBoundingClientRect();
+            btnNo.style.position = 'absolute';
+            btnNo.style.left = Math.max(0, Math.random() * (rect.width - 140)) + 'px';
+            btnNo.style.top  = (Math.random() * 80 - 20) + 'px';
+        } else {
+            showValWindow(4);
+        }
+    });
+}
+
+// ── Confetti ──
+function startConfetti() {
+    const container = document.getElementById('confettiContainer');
+    const emojis = ['🎉','💖','✨','💕','🎊','💝','🌸','💘'];
+    const interval = setInterval(() => {
+        if (!document.getElementById('valWindow5').classList.contains('active')) {
+            clearInterval(interval); return;
+        }
+        const c = document.createElement('span');
+        c.className = 'confetti';
+        c.textContent = emojis[Math.floor(Math.random() * emojis.length)];
+        c.style.left = Math.random() * 100 + '%';
+        c.style.fontSize = (Math.random() * 14 + 16) + 'px';
+        c.style.animationDuration = (3 + Math.random() * 2) + 's';
+        c.style.animationDelay = (Math.random() * 0.5) + 's';
+        container.appendChild(c);
+        setTimeout(() => c.remove(), 6000);
+    }, 350);
+}
+
+// ── Prevent scroll & context menu ──
+document.body.addEventListener('touchmove', e => e.preventDefault(), { passive: false });
+document.addEventListener('contextmenu', e => e.preventDefault());
+
+// ── Draw idle starfield on start ──
+(function idleLoop() {
+    if (playing) return;
+    resize();
+    drawBackground();
+    requestAnimationFrame(idleLoop);
+})();
+
+console.log('💘 QupiHearts ready!');
+</script>
+</body>
+</html>
